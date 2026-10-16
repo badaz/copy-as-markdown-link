@@ -40,6 +40,8 @@ So the markdown link copied to your clipboard is:
 
 Which outputs: [220522 – iwlwifi: Wi-Fi 6 AX201 160MHz missing ucode firmware files](https://bugzilla.kernel.org/show_bug.cgi?id=220522).
 
+Once the link is copied, the extension icon shows a check mark and a "Markdown Link copied" notification appears at the top of the page for 2 seconds. On browser pages (`about:`, `chrome://`, add-ons stores...), which extensions cannot modify, only the icon changes.
+
 ### Advanced Use
 
 Now let's suppose you are often working on this website and you want to simplify the link title. Suppose you want something like:
