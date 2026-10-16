@@ -238,7 +238,36 @@ function writeToClipboard(text, html = null) {
     ]);
 }
 
-function copyLink(typeOfLink, data, url) {
+// Injected in the page, so it must be self-contained.
+// Inline styles and the Web Animations API are not blocked by the page CSP, unlike a <style> element.
+function showToast(message) {
+    const id = "copy-link-as-toast";
+    document.getElementById(id)?.remove();
+    const host = document.createElement("div");
+    host.id = id;
+    host.style.cssText = "all: initial; position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 2147483647; pointer-events: none;";
+    const toast = document.createElement("div");
+    toast.setAttribute("role", "status");
+    toast.textContent = message;
+    toast.style.cssText = "font: 500 14px/1.4 system-ui, sans-serif; padding: 10px 16px; border-radius: 8px; border: 1px solid rgb(255 255 255 / 0.15); background: #2b2b2b; color: #fff; box-shadow: 0 4px 16px rgb(0 0 0 / 0.3);";
+    // Shadow DOM: the page stylesheets do not apply to the toast
+    host.attachShadow({ mode: "closed" }).append(toast);
+    document.documentElement.append(host);
+    toast.animate([{ opacity: 0, transform: "translateY(-8px)" }, { opacity: 1, transform: "none" }], { duration: 150, easing: "ease-out" });
+    setTimeout(() => {
+        toast.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: "forwards" }).finished.then(() => host.remove());
+    }, 2000);
+}
+
+function notifyTab(tabId, message) {
+    browser.scripting.executeScript({ target: { tabId: tabId }, func: showToast, args: [message] }).catch(error => {
+        // Browser pages (about:, chrome://, add-ons stores...) cannot be scripted: the toolbar icon remains the only feedback
+        console.warn("Cannot show the toast:", error);
+    });
+}
+
+function copyLink(typeOfLink, data, url, tabId) {
+    const linkTitle = Object.values(LINK_CONTEXT_MENUS).find(menu => menu.type === typeOfLink).title;
     browser.storage.sync.get("rules").then(result => {
         const rules = result.rules || [];
         let title = data.title;
@@ -276,8 +305,10 @@ function copyLink(typeOfLink, data, url) {
             setTimeout(() => {
                 setIcon();
             }, 2000);
+            notifyTab(tabId, `✓ ${linkTitle} copied`);
         }).catch(err => {
             console.error("Failed to copy:", err);
+            notifyTab(tabId, `✗ Failed to copy the ${linkTitle}`);
         });
     });
 }
@@ -299,7 +330,7 @@ function createLink(typeOfLink = "markdown") {
             if (result) {
                 url.hash = `:~:text=${encodeURIComponent(result)}`;
             }
-            copyLink(typeOfLink, data, url);
+            copyLink(typeOfLink, data, url, tab.id);
         });
     });
 }
@@ -336,7 +367,7 @@ async function createLinkFromAnchor(typeOfLink, info, tab) {
         url: url.toString(),
         selection: null,
     };
-    copyLink(typeOfLink, data, url);
+    copyLink(typeOfLink, data, url, tab.id);
 }
 
 browser.commands.onCommand.addListener(function (command) {
